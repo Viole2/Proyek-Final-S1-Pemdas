@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
+
 #define MAX_MAPEL 5
 
 struct Siswa {
@@ -10,19 +12,16 @@ struct Siswa {
     char grade;
 };
 
-struct Dosen {
-    char username[20];
-    char password[20];
-};
-
-float hitungRata(int nilai[]);
+float hitungRata(int *nilai);
 char tentukanGrade(float rata);
-void simpanNilai(struct Siswa s);
+void simpanNilai(struct Siswa *s);
 void tampilNilai();
+void hapusNilai();
 int loginDosen();
 
 int main() {
     int pilihan;
+
     do {
         printf("\n===== SISTEM PENGELOLAAN NILAI =====\n");
         printf("1. Login Dosen\n");
@@ -39,46 +38,56 @@ int main() {
                     printf("\n===== MENU DOSEN =====\n");
                     printf("1. Input Nilai Mahasiswa\n");
                     printf("2. Tampilkan Nilai Mahasiswa\n");
-                    printf("3. Logout\n");
+                    printf("3. Hapus Data Mahasiswa\n");
+                    printf("4. Logout\n");
                     printf("Pilih menu: ");
                     scanf("%d", &menu);
+
                     if (menu == 1) {
                         struct Siswa s;
-                        getchar();
+                        struct Siswa *ps = &s;
 
+                        getchar();
                         printf("\nNama Mahasiswa: ");
-                        fgets(s.nama, sizeof(s.nama), stdin);
-                        s.nama[strcspn(s.nama, "\n")] = 0;
+                        fgets(ps->nama, sizeof(ps->nama), stdin);
+                        ps->nama[strcspn(ps->nama, "\n")] = 0;
 
                         for (int i = 0; i < MAX_MAPEL; i++) {
                             printf("Nilai Mata Pelajaran %d: ", i + 1);
-                            scanf("%d", &s.nilai[i]);
+                            scanf("%d", &ps->nilai[i]);
                         }
 
-                        s.rata = hitungRata(s.nilai);
-                        s.grade = tentukanGrade(s.rata);
+                        ps->rata = hitungRata(ps->nilai);
+                        ps->grade = tentukanGrade(ps->rata);
 
-                        simpanNilai(s);
+                        simpanNilai(ps);
                         printf("\nData berhasil disimpan!\n");
                     }
                     else if (menu == 2) {
                         tampilNilai();
                     }
+                    else if (menu == 3) {
+                        hapusNilai();
+                    }
 
-                } while (menu != 3);
+                } while (menu != 4);
             }
             break;
+
         case 2:
             tampilNilai();
             break;
+
         case 3:
             printf("\nTerima kasih!\n");
             break;
+
         default:
             printf("\nPilihan tidak valid!\n");
         }
 
     } while (pilihan != 3);
+
     return 0;
 }
 
@@ -96,7 +105,6 @@ int loginDosen() {
 
     printf("Username: ");
     scanf("%s", inputUser);
-
     printf("Password: ");
     scanf("%s", inputPass);
 
@@ -119,10 +127,11 @@ int loginDosen() {
     }
 }
 
-float hitungRata(int nilai[]) {
+float hitungRata(int *nilai) {
     int total = 0;
-    for (int i = 0; i < MAX_MAPEL; i++)
-        total += nilai[i];
+    for (int i = 0; i < MAX_MAPEL; i++) {
+        total += *(nilai + i);
+    }
     return (float) total / MAX_MAPEL;
 }
 
@@ -134,19 +143,20 @@ char tentukanGrade(float rata) {
     else return 'E';
 }
 
-void simpanNilai(struct Siswa s) {
+void simpanNilai(struct Siswa *s) {
     FILE *file = fopen("nilai.txt", "a");
 
-    fprintf(file, "%s ", s.nama);
+    fprintf(file, "%s ", s->nama);
     for (int i = 0; i < MAX_MAPEL; i++)
-        fprintf(file, "%d ", s.nilai[i]);
+        fprintf(file, "%d ", s->nilai[i]);
 
-    fprintf(file, "%.2f %c\n", s.rata, s.grade);
+    fprintf(file, "%.2f %c\n", s->rata, s->grade);
     fclose(file);
 }
 
 void tampilNilai() {
     struct Siswa s;
+    struct Siswa *ps = &s;
     FILE *file = fopen("nilai.txt", "r");
 
     if (file == NULL) {
@@ -156,15 +166,76 @@ void tampilNilai() {
 
     printf("\n===== DATA NILAI MAHASISWA =====\n");
     while (fscanf(file, "%s %d %d %d %d %d %f %c",
-           s.nama,
-           &s.nilai[0], &s.nilai[1], &s.nilai[2],
-           &s.nilai[3], &s.nilai[4],
-           &s.rata, &s.grade) != EOF) {
+           ps->nama,
+           &ps->nilai[0], &ps->nilai[1], &ps->nilai[2],
+           &ps->nilai[3], &ps->nilai[4],
+           &ps->rata, &ps->grade) != EOF) {
 
-        printf("\nNama : %s", s.nama);
-        printf("\nRata-rata : %.2f", s.rata);
-        printf("\nGrade : %c\n", s.grade);
+        printf("\nNama       : %s", ps->nama);
+        printf("\nRata-rata  : %.2f", ps->rata);
+        printf("\nGrade      : %c\n", ps->grade);
     }
 
     fclose(file);
+}
+
+void hapusNilai() {
+    FILE *file, *temp;
+    struct Siswa s;
+    struct Siswa *ps = &s;
+    char namaHapus[50];
+    char konfirmasi;
+    int found = 0;
+
+    file = fopen("nilai.txt", "r");
+    if (file == NULL) {
+        printf("\nBelum ada data nilai!\n");
+        return;
+    }
+
+    temp = fopen("temp.txt", "w");
+
+    getchar();
+    printf("\nMasukkan nama mahasiswa yang akan dihapus: ");
+    fgets(namaHapus, sizeof(namaHapus), stdin);
+    namaHapus[strcspn(namaHapus, "\n")] = 0;
+
+    printf("Yakin ingin menghapus data ini? (y/n): ");
+    scanf(" %c", &konfirmasi);
+    konfirmasi = tolower(konfirmasi);
+
+    if (konfirmasi != 'y') {
+        fclose(file);
+        fclose(temp);
+        remove("temp.txt");
+        printf("\nPenghapusan dibatalkan.\n");
+        return;
+    }
+
+    while (fscanf(file, "%s %d %d %d %d %d %f %c",
+           ps->nama,
+           &ps->nilai[0], &ps->nilai[1], &ps->nilai[2],
+           &ps->nilai[3], &ps->nilai[4],
+           &ps->rata, &ps->grade) != EOF) {
+
+        if (strcmp(ps->nama, namaHapus) != 0) {
+            fprintf(temp, "%s ", ps->nama);
+            for (int i = 0; i < MAX_MAPEL; i++)
+                fprintf(temp, "%d ", ps->nilai[i]);
+            fprintf(temp, "%.2f %c\n", ps->rata, ps->grade);
+        } else {
+            found = 1;
+        }
+    }
+
+    fclose(file);
+    fclose(temp);
+
+    remove("nilai.txt");
+    rename("temp.txt", "nilai.txt");
+
+    if (found)
+        printf("\nData mahasiswa berhasil dihapus.\n");
+    else
+        printf("\nData tidak ditemukan.\n");
 }
